@@ -56,7 +56,7 @@ module Pod
       
       # The Podspec should be 8.0 instead of 7.0      
       text = File.read("NAME.podspec")
-      text.gsub!("7.0", "8.0")
+      text.gsub!("7.0", "8.4")
       File.open("NAME.podspec", "w") { |file| file.puts text }
     end
   end
