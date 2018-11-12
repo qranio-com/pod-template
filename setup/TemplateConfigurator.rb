@@ -1,5 +1,5 @@
 require 'fileutils'
-require 'colored'
+require 'colored2'
 
 module Pod
   class TemplateConfigurator
@@ -35,7 +35,7 @@ module Pod
       print_info = Proc.new {
 
         possible_answers_string = possible_answers.each_with_index do |answer, i|
-           _answer = (i == 0) ? answer.underline : answer
+           _answer = (i == 0) ? answer.underlined : answer
            print " " + _answer
            print(" /") if i != possible_answers.length-1
         end
@@ -70,13 +70,20 @@ module Pod
     def run
       @message_bank.welcome_message
 
-      framework = self.ask_with_answers("What language do you want to use?", ["Swift", "ObjC"]).to_sym
-      case framework
-        when :swift
-          ConfigureSwift.perform(configurator: self)
+      platform = self.ask_with_answers("What platform do you want to use?", ["iOS", "macOS"]).to_sym
 
-        when :objc
-          ConfigureIOS.perform(configurator: self)
+      case platform
+        when :macos
+          ConfigureMacOSSwift.perform(configurator: self)
+        when :ios
+          framework = self.ask_with_answers("What language do you want to use?", ["Swift", "ObjC"]).to_sym
+          case framework
+            when :swift
+              ConfigureSwift.perform(configurator: self)
+
+            when :objc
+              ConfigureIOS.perform(configurator: self)
+          end
       end
 
       replace_variables_in_files
@@ -138,7 +145,7 @@ module Pod
       podfile = File.read podfile_path
       podfile_content = @pods_for_podfile.map do |pod|
         "pod '" + pod + "'"
-      end.join("\n  ")
+      end.join("\n    ")
       podfile.gsub!("${INCLUDED_PODS}", podfile_content)
       File.open(podfile_path, "w") { |file| file.puts podfile }
     end
@@ -156,9 +163,8 @@ module Pod
       File.open(prefix_path, "w") { |file| file.puts pch }
     end
 
-    def set_test_framework(test_type, extension)
+    def set_test_framework(test_type, extension, folder)
       content_path = "setup/test_examples/" + test_type + "." + extension
-      folder = extension == "m" ? "ios" : "swift"
       tests_path = "templates/" + folder + "/Example/Tests/Tests." + extension
       tests = File.read tests_path
       tests.gsub!("${TEST_EXAMPLE}", File.read(content_path) )
@@ -188,7 +194,13 @@ module Pod
     #----------------------------------------#
 
     def user_name
-      (ENV['GIT_COMMITTER_NAME'] || `git config user.name`).strip
+      (ENV['GIT_COMMITTER_NAME'] || github_user_name || `git config user.name` || `<GITHUB_USERNAME>` ).strip
+    end
+
+    def github_user_name
+      github_user_name = `security find-internet-password -s github.com | grep acct | sed 's/"acct"<blob>="//g' | sed 's/"//g'`.strip
+      is_valid = github_user_name.empty? or github_user_name.include? '@'
+      return is_valid ? nil : github_user_name
     end
 
     def user_email
